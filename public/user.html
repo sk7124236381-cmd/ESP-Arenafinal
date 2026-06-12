@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950 text-slate-100 selection:bg-cyan-500/30 selection:text-cyan-200">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PLAYERLINK // Elite Free Fire Talent Marketplace</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            cyber: { 50: '#ecfdf5', 100: '#d1fae5', 400: '#34d399', 500: '#10b981', 600: '#059669', 900: '#064e3b' },
+            neon: { blue: '#00f0ff', pink: '#ff007f', purple: '#9d00ff' }
+          },
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <style>
+    .glass-panel {
+      background: rgba(8, 13, 28, 0.65);
+      backdrop-filter: blur(20px) saturate(190%);
+      -webkit-backdrop-filter: blur(20px) saturate(190%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .glass-card {
+      background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .glass-card:hover {
+      border-color: rgba(0, 240, 255, 0.3);
+      box-shadow: 0 0 30px rgba(0, 240, 255, 0.15);
+      transform: translateY(-4px);
+    }
+    .hud-glow { box-shadow: inset 0 0 15px rgba(0, 240, 255, 0.1), 0 0 20px rgba(0, 240, 255, 0.05); }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #020617; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #334155; }
+    .interactive-mesh-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
+  </style>
+</head>
+<body class="h-full font-sans antialiased overflow-x-hidden">
+
+  <div id="three-webgl-background-viewport" class="interactive-mesh-canvas"></div>
+  <div class="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900/40 via-slate-950/90 to-black z-[-1] pointer-events:none;"></div>
+
+  <div class="min-h-screen flex flex-col relative z-10">
+    
+    <header class="glass-panel sticky top-0 z-50 border-b border-slate-800/60 transition-all duration-300">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+        <div class="flex items-center gap-3 cursor-pointer" onclick="PlatformRouter.navigate('/')">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-neon-blue to-neon-purple p-[1px] shadow-[0_0_15px_rgba(0,240,255,0.4)]">
+            <div class="w-full h-full bg-slate-950 rounded-[11px] flex items-center justify-center font-black text-xl text-transparent bg-clip-text bg-gradient-to-r from-neon-blue to-white">P</div>
+          </div>
+          <span class="text-xl font-black tracking-widest text-white uppercase">Player<span class="text-neon-blue">Link</span></span>
+        </div>
+        
+        <nav class="hidden md:flex items-center gap-8 text-sm font-medium tracking-wide text-slate-300" id="primary-navigation-dock">
+          </nav>
+
+        <div class="flex items-center gap-4" id="navigation-action-gateway">
+          </div>
+      </div>
+    </header>
+
+    <main class="flex-grow flex flex-col max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 relative" id="app-view-router-viewport">
+      </main>
+
+    <footer class="glass-panel border-t border-slate-900 mt-auto bg-slate-950/80">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+        <div>&copy; 2026 PLAYERLINK Technologies Private Ltd. Built for Global Free Fire Esports Ecosystem Pro-Tier Recruitment.</div>
+        <div class="flex items-center gap-6">
+          <a onclick="PlatformRouter.navigate('/privacy')" class="hover:text-neon-blue cursor-pointer transition-colors">Privacy Charter</a>
+          <a onclick="PlatformRouter.navigate('/terms')" class="hover:text-neon-blue cursor-pointer transition-colors">Terms of Operations</a>
+          <a onclick="PlatformRouter.navigate('/faq')" class="hover:text-neon-blue cursor-pointer transition-colors">Fulfillment Index</a>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    // Platform Architecture Memory Context Model Engine Struct
+    const SystemStateStore = {
+      sessionUser: JSON.parse(localStorage.getItem('pl_session_user')) || null,
+      kycDatabaseStore: JSON.parse(localStorage.getItem('pl_kyc_registry')) || {},
+      financialLedgers: JSON.parse(localStorage.getItem('pl_wallets_ledger')) || { client_bal: 25000, player_bal: 0, escrow_held: 0 },
+      activeMarketContracts: JSON.parse(localStorage.getItem('pl_contracts_db')) || [
+        { id: 'CON-8891', title: 'Grandmaster League Rusher Deployment', client: 'Team Liquid India', volume: 15000, status: 'Active' },
+        { id: 'CON-1029', title: 'Pro League Weekly Sniper Backfill', client: 'GodLike Esports', volume: 8000, status: 'Pending_Approval' }
+      ],
+      systemNotifications: [
+        { title: 'Security Protocol Identity Baseline Verified', context: 'Your identification documentation has passed processing.', age: '2 hours ago' },
+        { title: 'Escrow Account Balance Locked', context: '₹15,000 securely isolated via serverless automation ledger.', age: '1 day ago' }
+      ],
+      verifiedTalentPool: [
+        { uid: 'P-992', name: 'Aman "Viper" Sharma', role: 'Rusher', rank: 'Heroic 72 Stars', rate: '₹4,500/Week', badge: 'Verified Pro', rating: '4.9' },
+        { uid: 'P-504', name: 'Rohit "SnipeGod" Das', role: 'Sniper', rank: 'Grandmaster', rate: 'Hexa Tier Eligible', badge: 'Featured Star', rating: '5.0' },
+        { uid: 'P-112', name: 'Kabir "Shield" Verma', role: 'Support', rank: 'Heroic', rate: 'Custom Contract', badge: 'Verified Pro', rating: '4.8' }
+      ]
+    };
+
+    function syncStateToDisk() {
+      localStorage.setItem('pl_session_user', JSON.stringify(SystemStateStore.sessionUser));
+      localStorage.setItem('pl_kyc_registry', JSON.stringify(SystemStateStore.kycDatabaseStore));
+      localStorage.setItem('pl_wallets_ledger', JSON.stringify(SystemStateStore.financialLedgers));
+      localStorage.setItem('pl_contracts_db', JSON.stringify(SystemStateStore.activeMarketContracts));
+    }
+
+    // Advanced Graphic Pipeline Module Execution
+    function initializeThreeEngineMeshBackground() {
+      const targetViewportContainer = document.getElementById('three-webgl-background-viewport');
+      if (!targetViewportContainer) return;
+      
+      const renderScene = new THREE.Scene();
+      const perspectiveCamera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+      const WebGLFrameRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+      
+      WebGLFrameRenderer.setSize(window.innerWidth, window.innerHeight);
+      WebGLFrameRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      targetViewportContainer.appendChild(WebGLFrameRenderer.domElement);
+
+      const particleGeometryBuffer = new THREE.BufferGeometry();
+      const internalParticleCount = 180;
+      const positionalArrangementArray = new Float32Array(internalParticleCount * 3);
+
+      for(let i = 0; i < internalParticleCount * 3; i++) {
+        positionalArrangementArray[i] = (Math.random() - 0.5) * 45;
+      }
+      particleGeometryBuffer.setAttribute('position', new THREE.BufferAttribute(positionalArrangementArray, 3));
+
+      const customHighGradeMaterial = new THREE.PointsMaterial({
+        color: 0x00f0ff,
+        size: 0.18,
+        transparent: true,
+        opacity: 0.6,
+        blending: THREE.AdditiveBlending
+      });
+
+      const elementParticleCloudSystem = new THREE.Points(particleGeometryBuffer, customHighGradeMaterial);
+      renderScene.add(elementParticleCloudSystem);
+      perspectiveCamera.position.z = 15;
+
+      let runtimeExecutionPointerY = 0;
+      let runtimeExecutionPointerX = 0;
+
+      window.addEventListener('mousemove', (event) => {
+        runtimeExecutionPointerX = (event.clientX / window.innerWidth) * 2 - 1;
+        runtimeExecutionPointerY = -(event.clientY / window.innerHeight) * 2 + 1;
+      });
+
+      function executeAnimationRenderLoopStep() {
+        requestAnimationFrame(executeAnimationRenderLoopStep);
+        elementParticleCloudSystem.rotation.y += 0.0012;
+        elementParticleCloudSystem.rotation.x += 0.0006;
+        
+        perspectiveCamera.position.x += (runtimeExecutionPointerX * 4 - perspectiveCamera.position.x) * 0.05;
+        perspectiveCamera.position.y += (runtimeExecutionPointerY * 4 - perspectiveCamera.position.y) * 0.05;
+        perspectiveCamera.lookAt(renderScene.position);
+        
+        WebGLFrameRenderer.render(renderScene, perspectiveCamera);
+      }
+      executeAnimationRenderLoopStep();
+
+      window.addEventListener('resize', () => {
+        perspectiveCamera.aspect = window.innerWidth / window.innerHeight;
+        perspectiveCamera.updateProjectionMatrix();
+        WebGLFrameRenderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    }
+
+    // Platform Single-Page Client Application Router Controller Engine Module
+    const PlatformRouter = {
+      routes: {},
+      register: function(routePath, templateRenderingCallbackFunction) {
+        this.routes[routePath] = templateRenderingCallbackFunction;
+      },
+      navigate: function(targetPathString) {
+        window.history.pushState({}, "", targetPathString);
+        this.resolveAndExecuteRoute(targetPathString);
+      },
+      resolveAndExecuteRoute: function(requestedPathString) {
+        // Enforce Mandatory Global KYC Gate Rule Architecture Logic Pipeline
+        if (SystemStateStore.sessionUser) {
+          const matchingKycRecord = SystemStateStore.kycDatabaseStore[SystemStateStore.sessionUser.uid];
+          const calculatedKycStatus = matchingKycRecord ? matchingKycRecord.status : 'Not Submitted';
+          
+          if (calculatedKycStatus !== 'Approved' && 
+              requestedPathString !== '/kyc' && 
+              requestedPathString !== '/kyc-pending' && 
+              requestedPathString !== '/kyc-rejected' && 
+              requestedPathString !== '/login') {
+            
+            if (calculatedKycStatus === 'Not Submitted') { this.navigate('/kyc'); return; }
+            if (calculatedKycStatus === 'Pending') { this.navigate('/kyc-pending'); return; }
+            if (calculatedKycStatus === 'Rejected') { this.navigate('/kyc-rejected'); return; }
+          }
+        }
+
+        const standardNormalizedPath = requestedPathString.split('?')[0];
+        const routeExecutionHandler = this.routes[standardNormalizedPath] || this.routes['/'];
+        
+        const rootContainerViewport = document.getElementById('app-view-router-viewport');
+        gsap.to(rootContainerViewport, { opacity: 0, y: 10, duration: 0.18, onComplete: () => {
+          rootContainerViewport.innerHTML = routeExecutionHandler();
+          this.refreshUINavigationElementsState();
+          gsap.to(rootContainerViewport, { opacity: 1, y: 0, duration: 0.25, ease: "power2.out" });
+        }});
+      },
+      refreshUINavigationElementsState: function() {
+        const linkDock = document.getElementById('primary-navigation-dock');
+        const gateButtonContainer = document.getElementById('navigation-action-gateway');
+        
+        if (!SystemStateStore.sessionUser) {
+          linkDock.innerHTML = `
+            <a onclick="PlatformRouter.navigate('/')" class="hover:text-white cursor-pointer transition-colors">Home</a>
+            <a onclick="PlatformRouter.navigate('/about')" class="hover:text-white cursor-pointer transition-colors">About Ecosystem</a>
+            <a onclick="PlatformRouter.navigate('/pricing')" class="hover:text-white cursor-pointer transition-colors">Premium Tiering</a>
+          `;
+          gateButtonContainer.innerHTML = `
+            <button onclick="PlatformRouter.navigate('/login')" class="px-5 py-2.5 rounded-xl border border-slate-800 text-sm font-semibold hover:bg-slate-900 transition-all">Sign In</button>
+            <button onclick="PlatformRouter.navigate('/register-player')" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-sm font-semibold text-white hover:opacity-90 shadow-[0_4px_20px_rgba(6,182,212,0.25)] transition-all">Recruit Arena</button>
+          `;
+        } else {
+          const accountRoleContext = SystemStateStore.sessionUser.role;
+          if (accountRoleContext === 'player') {
+            linkDock.innerHTML = `
+              <a onclick="PlatformRouter.navigate('/player/dashboard')" class="text-neon-blue font-semibold cursor-pointer">Dashboard Portal</a>
+              <a onclick="PlatformRouter.navigate('/player/profile')" class="hover:text-white cursor-pointer transition-colors">Profile Node</a>
+              <a onclick="PlatformRouter.navigate('/player/wallet')" class="hover:text-white cursor-pointer transition-colors">Ledger Wallet</a>
+              <a onclick="PlatformRouter.navigate('/player/contracts')" class="hover:text-white cursor-pointer transition-colors">Active Contracts</a>
+            `;
+          } else if (accountRoleContext === 'client') {
+            linkDock.innerHTML = `
+              <a onclick="PlatformRouter.navigate('/client/dashboard')" class="text-neon-blue font-semibold cursor-pointer">Client Deck</a>
+              <a onclick="PlatformRouter.navigate('/client/search-players')" class="hover:text-white cursor-pointer transition-colors">Scout Hub</a>
+              <a onclick="PlatformRouter.navigate('/client/team-builder')" class="hover:text-white cursor-pointer transition-colors">Squad Forge</a>
+              <a onclick="PlatformRouter.navigate('/client/wallet')" class="hover:text-white cursor-pointer transition-colors">Escrow Balance</a>
+            `;
+          } else if (accountRoleContext === 'admin') {
+            linkDock.innerHTML = `
+              <a onclick="PlatformRouter.navigate('/admin/dashboard')" class="text-red-400 font-black cursor-pointer">SYSTEM OVERSEER CONTROL</a>
+              <a onclick="PlatformRouter.navigate('/admin/kyc')" class="hover:text-white cursor-pointer transition-colors">KYC Verification Queue</a>
+            `;
+          }
+          
+          gateButtonContainer.innerHTML = `
+            <div class="flex items-center gap-3 bg-slate-900/90 px-4 py-2 rounded-xl border border-slate-800">
+              <div class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+              <span class="text-xs font-mono font-medium tracking-tight text-slate-400">${SystemStateStore.sessionUser.email}</span>
+              <button onclick="PlatformActions.executeSignOutWorkflow()" class="text-xs font-bold text-rose-400 hover:text-rose-300 ml-2 transition-colors">Disconnect</button>
+            </div>
+          `;
+        }
+      }
+    };
+
+    // Client Business Domain Execution Actions Controller Block
+    const PlatformActions = {
+      executeAuthenticationFormSubmission: function(formIdentifierContextType) {
+        const targetingEmailValue = document.getElementById('auth-input-field-email').value;
+        const matchingPasswordValue = document.getElementById('auth-input-field-password').value;
+
+        if (!targetingEmailValue || !matchingPasswordValue) {
+          alert('Validation failure context. Ensure all access control credentials are typed fully.');
+          return;
+        }
+
+        let evaluatedRole = formIdentifierContextType;
+        if (formIdentifierContextType === 'login') {
+          evaluatedRole = targetingEmailValue.includes('admin') ? 'admin' : (targetingEmailValue.includes('client') ? 'client' : 'player');
+        }
+
+        SystemStateStore.sessionUser = {
+          uid: "USR_MOCK_" + Math.floor(Math.random() * 90000 + 10000),
+          email: targetingEmailValue,
+          role: evaluatedRole
+        };
+        syncStateToDisk();
+
+        if (evaluatedRole === 'admin') {
+          PlatformRouter.navigate('/admin/dashboard');
+        } else {
+          PlatformRouter.navigate(evaluatedRole === 'player' ? '/player/dashboard' : '/client/dashboard');
+        }
+      },
+      executeSignOutWorkflow: function() {
+        SystemStateStore.sessionUser = null;
+        syncStateToDisk();
+        PlatformRouter.navigate('/');
+      },
+      processKycDocumentSubmissionFiles: function() {
+        if (!SystemStateStore.sessionUser) return;
+        SystemStateStore.kycDatabaseStore[SystemStateStore.sessionUser.uid] = {
+          status: 'Pending',
+          timestamp: Date.now()
+        };
+        syncStateToDisk();
+        PlatformRouter.navigate('/kyc-pending');
+      },
+      processDepositOrderGeneration: function() {
+        const inputAmountString = document.getElementById('wallet-deposit-amount-input').value;
+        if (!inputAmountString || parseFloat(inputAmountString) <= 0) {
+          alert('Specify valid monetary funding input parameter.');
+          return;
+        }
+        
+        const processingTriggerButton = document.getElementById('wallet-deposit-action-trigger');
+        processingTriggerButton.innerText = "Generating ZapUPI Secure Gateway Context...";
+        processingTriggerButton.disabled = true;
+
+        setTimeout(() => {
+          const parsedNumericDepositAmount = parseFloat(inputAmountString);
+          if (SystemStateStore.sessionUser.role === 'client') {
+            SystemStateStore.financialLedgers.client_bal += parsedNumericDepositAmount;
+          } else {
+            SystemStateStore.financialLedgers.player_bal += parsedNumericDepositAmount;
+          }
+          syncStateToDisk();
+          alert(`ZapUPI Settlement Simulation Verified Successfully! Order complete. Credited: ₹${parsedNumericDepositAmount}`);
+          PlatformRouter.navigate(SystemStateStore.sessionUser.role === 'player' ? '/player/wallet' : '/client/wallet');
+        }, 1250);
+      },
+      processWithdrawalRequestForm: function() {
+        const extractionTargetAmount = parseFloat(document.getElementById('wallet-withdrawal-amount-field').value);
+        if (!extractionTargetAmount || extractionTargetAmount <= 0) {
+          alert('Provide valid monetary value payload parameters.');
+          return;
+        }
+        
+        const availableBalancePool = SystemStateStore.sessionUser.role === 'player' ? SystemStateStore.financialLedgers.player_bal : SystemStateStore.financialLedgers.client_bal;
+        if (extractionTargetAmount > availableBalancePool) {
+          alert('Transaction disallowed. Specified withdrawal amount exceeds liquid portfolio capabilities.');
+          return;
+        }
+
+        if (SystemStateStore.sessionUser.role === 'player') {
+          SystemStateStore.financialLedgers.player_bal -= extractionTargetAmount;
+        } else {
+          SystemStateStore.financialLedgers.client_bal -= extractionTargetAmount;
+        }
+        syncStateToDisk();
+        alert(`Withdrawal request submitted for review. Liquidating: ₹${extractionTargetAmount}`);
+        PlatformRouter.navigate(SystemStateStore.sessionUser.role === 'player' ? '/player/wallet' : '/client/wallet');
+      },
+      processProposalTransmission: function(selectedPlayerUid) {
+        alert(`Secured Proposal Dispatch Initiated. System has isolated target contract escrow framework requirements.`);
+        PlatformRouter.navigate('/client/contracts');
+      }
+    };
+
+    // Define View Routing Template Context Mappings 
+    PlatformRouter.register('/', () => `
+      <div class="flex flex-col items-center justify-center text-center py-20 min-h-[75vh]">
+        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-panel border border-cyan-500/30 text-xs font-mono tracking-widest text-cyan-400 mb-8 uppercase class="hud-glow"">
+          <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span> The Next Generation of Free Fire Talent Acquisition
+        </div>
+        <h1 class="text-5xl md:text-8xl font-black tracking-tight text-white mb-6 uppercase">
+          Forge Your <span class="text-transparent bg-clip-text bg-gradient-to-r from-neon-blue via-cyan-400 to-neon-purple">Esports Legacy</span>
+        </h1>
+        <p class="max-w-2xl text-slate-400 md:text-lg mb-12 tracking-wide leading-relaxed">
+          Verify your pro metrics, protect contract execution with serverless escrow protocols, and assemble high-tier competitive teams instantly.
+        </p>
+        <div class="flex flex-col sm:flex-row gap-6 w-full max-w-md justify-center">
+          <button onclick="PlatformRouter.navigate('/register-player')" class="px-8 py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 font-bold text-sm tracking-wider uppercase text-white shadow-[0_0_35px_rgba(6,182,212,0.35)] hover:scale-[1.02] active:scale-[0.98] transition-all">Join as Athlete</button>
+          <button onclick="PlatformRouter.navigate('/register-client')" class="px-8 py-4 rounded-xl glass-panel border border-slate-700 hover:border-slate-500 font-bold text-sm tracking-wider uppercase text-white hover:bg-slate-900/60 transition-all">Deploy Organization Guild</button>
+        </div>
+      </div>
+    `);
+
+    PlatformRouter.register('/about', () => `
+      <div class="max-w-3xl mx-auto py-12">
+        <h2 class="text-3xl font-black uppercase text-white tracking-wider mb-6">System Architecture Operations Framework</h2>
+        <div class="glass-panel p-8 rounded-2xl border border-slate-800 space-y-6 text-slate-300 leading-relaxed">
+          <p>PLAYERLINK functions as a secure infrastructure mechanism for cross-border talent acquisition inside the Free Fire ecosystem.</p>
+          <p>By enforcing real-time identity checking (KYC verification), automated serverless escrow ledgers, and live matchmaking tracking, we eradicate transaction hazards between professional free-agent athletes and enterprise tier-1 organizations.</p>
+        </div>
+      </div>
+    `);
+
+    PlatformRouter.register('/pricing', () => `
+      <div class="py-12 max-w-4xl mx-auto text-center">
+        <h2 class="text-4xl font-black uppercase tracking-wider mb-4">Premium Athlete Subscriptions</h2>
+        <p class="text-slate-400 mb-12">Scale profile indexing performance metrics using global system ranking amplification assets.</p>
+        <div class="glass-panel max-w-md mx-auto p-8 rounded-3xl border-2 border-cyan-500/40 relative shadow-[0_0_40px_rgba(0,240,255,0.15)]">
+          <div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-cyan-500 to-blue-600 text-black text-xs font-black tracking-widest px-4 py-1.5 rounded-full uppercase">Dominant Stratum</div>
+          <h3 class="text-xl font-bold uppercase mb-2">PRO-BOOST ACCELERATOR</h3>
+          <div class="text-5xl font-black text-white my-6">₹200<span class="text-sm font-medium text-slate-400"> / Weekly</span></div>
+          <ul class="text-left space-y-4 text-sm text-slate-300 mb-8 border-t border-slate-800/80 pt-6">
+            <li class="flex items-center gap-2"><span class="text-cyan-400 font-black">✓</span> Top Priority Client Search Inversion Indexing</li>
+            <li class="flex items-center gap-2"><span class="text-cyan-400 font-black">✓</span> Front-page Elite Spotlight Verification Badge</li>
+            <li class="flex items-center gap-2"><span class="text-cyan-400 font-black">✓</span> Advanced Portfolio Video Telemetry Processing</li>
+          </ul>
+          <button onclick="alert('Subscription ledger verification system active.')" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 font-bold text-xs tracking-widest uppercase text-white shadow-lg transition-transform hover:scale-[1.01]">Purchase Pipeline Activation</button>
+        </div>
+      </div>
+    `);
+
+    PlatformRouter.register('/login', () => `
+      <div class="max-w-md mx-auto w-full py-16">
+        <div class="glass-panel p-8 rounded-2xl border border-slate-800/80">
+          <h2 class="text-2xl font-black tracking-wide text-white uppercase mb-2">Sign In Framework Portal</h2>
+          <p class="text-xs text-slate-400 mb-6">Provide access credentials to link profile telemetry pipelines.</p>
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs font-mono uppercase tracking-wider text-slate-400 mb-1.5">Network Identity Identifier</label>
+              <input type="email" id="auth-input-field-email" placeholder="player@playerlink.in or client@guild.com" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500 transition-colors">
+            </div>
+            <div>
+              <label class="block text-xs font-mono uppercase tracking-wider text-slate-400 mb-1.5">Secure Passkey</label>
+              <input type="password" id="auth-input-field-password" placeholder="••••••••••••" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500 transition-colors">
+            </div>
+            <button onclick="PlatformActions.executeAuthenticationFormSubmission('login')" class="w-full py-3.5 mt-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 font-bold text-xs tracking-widest uppercase text-white shadow-md transition-all">Establish Core Session</button>
+          </div>
+        </div>
+      </div>
+    `);
+
+    PlatformRouter.register('/register-player', () => `
+      <div class="max-w-md mx-auto w-full py-12">
+        <div class="glass-panel p-8 rounded-2xl border border-slate-800">
+          <h2 class="text-2xl font-black tracking-wide text-white uppercase mb-2">Register Pro Athlete</h2>
+          <p class="text-xs text-slate-400 mb-6">Index your skill specifications into the marketplace pool.</p>
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs font-mono uppercase tracking-wider text-slate-400 mb-1.5">Full Legal Name</label>
+              <input type="text" placeholder="John Doe" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-mono uppercase tracking-wider text-slate-400 mb-1.5">Email Link</label>
+              <input type="email" id="auth-input-field-email" placeholder="athlete@domain.com" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-mono uppercase tracking-wider text-slate-400 mb-1.5">Ecosystem Core Specialty Role</label>
+              <select class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none text-slate-300">
+                <option>Rusher</option><option>Sniper</option><option>Support</option><option>Secondary Rusher</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-mono uppercase tracking-wider text-slate-400 mb-1.5">Secure Password</label>
+              <input type="password" id="auth-input-field-password" placeholder="••••••••" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none">
+            </div>
+            <button onclick="PlatformActions.executeAuthenticationFormSubmission('player')" class="w-full py-3.5 rounded-xl bg-cyan-500 font-bold text-xs tracking-widest uppercase text-black transition-all">Generate Athlete Profile</button>
+          </div>
+        </div>
+      </div>
+    `);
+
+    PlatformRouter.register('/register-client', () => `
+      <div class="max-w-md mx-auto w-full py-12">
+        <div class="glass-panel p-8 rounded-2xl border border-slate-800">
+          <h2 class="text-2xl font-black tracking-wide text-white uppercase mb-2">Register Organization Client</h2>
+          <p class="text-xs text-slate-400 mb-6">Establish institutional funding credentials to deploy squads.</p>
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs font-mono uppercase tracking-wider text-slate-400 mb-1.5">Corporate / Clan Title</label>
+              <input type="text" placeholder="Esports Guild Organization" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-mono uppercase tracking-wider text-slate-400 mb-1.5">Administrative Email</label>
+              <input type="email" id="auth-input-field-email" placeholder="client@guild.com" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-mono uppercase tracking-wider text-slate-400 mb-1.5">Password</label>
+              <input type="password" id="auth-input-field-password" placeholder="••••••••" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none">
+            </div>
+            <button onclick="PlatformActions.executeAuthenticationFormSubmission('client')" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 font-bold text-xs tracking-widest uppercase text-white transition-all">Deploy Client Framework</button>
+          </div>
+        </div>
+      </div>
+    `);
+
+    // Mandatory Regulatory Verification Interception Flows UI Frame Pages
+    PlatformRouter.register('/kyc', () => `
+      <div class="max-w-xl mx-auto py-12">
+        <div class="glass-panel p-8 rounded-2xl border border-amber-500/20 shadow-[0_0_30px_rgba(245,158,11,0.05)]">
+          <h2 class="text-2xl font-black tracking-wide text-amber-400 uppercase mb-2">Mandatory Identity KYC Processing Required</h2>
+          <p class="text-sm text-slate-400 mb-8 leading-relaxed">Platform regulatory structures dictate cryptographic verification of government documentation parameters prior to system execution or resource listing workflows.</p>
+          <div class="space-y-6">
+            <div class="border border-dashed border-slate-800 p-6 rounded-xl text-center bg-slate-950/60">
+              <span class="block text-xs font-mono text-slate-400 mb-2 uppercase">Government Issued ID Document (Front)</span>
+              <input type="file" class="block mx-auto text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-slate-900 file:text-slate-300 hover:file:bg-slate-800">
+            </div>
+            <div class="border border-dashed border-slate-800 p-6 rounded-xl text-center bg-slate-950/60">
+              <span class="block text-xs font-mono text-slate-400 mb-2 uppercase">Government Issued ID Document (Back)</span>
+              <input type="file" class="block mx-auto text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-slate-900 file:text-slate-300 hover:file:bg-slate-800">
+            </div>
+            <div class="border border-dashed border-slate-800 p-6 rounded-xl text-center bg-slate-950/60">
+              <span class="block text-xs font-mono text-slate-400 mb-2 uppercase">Biometric Selfie Validation Video Clip Asset</span>
+              <input type="file" class="block mx-auto text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-slate-900 file:text-slate-300 hover:file:bg-slate-800">
+            </div>
+            <button onclick="PlatformActions.processKycDocumentSubmissionFiles()" class="w-full py-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 font-bold text-xs tracking-widest uppercase text-black transition-all">Submit Documentation Pipeline</button>
+          </div>
+        </div>
+      </div>
+    `);
+
+    PlatformRouter.register('/kyc-pending', () => `
+      <div class="max-w-md mx-auto text-center py-20">
+        <div class="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto mb-6 text-2xl text-amber-400 animate-pulse">⏳</div>
+        <h2 class="text-2xl font-black uppercase tracking-wider text-white mb-3">Identity Verification Pipeline Under Operational Audit</h2>
+        <p class="text-sm text-slate-400 leading-relaxed mb-6">Our automated ledger inspection nodes and administrative compliance officers are validating your credentials.</p>
+        <button onclick="PlatformActions.executeSignOutWorkflow()" class="px-6 py-2.5 rounded-lg border border-slate-800 text-xs font-mono text-slate-400 hover:text-white transition-colors">Disconnect Current Identity Token</button>
+      </div>
+    `);
+
+    PlatformRouter.register('/kyc-rejected', () => `
+      <div class="max-w-md mx-auto text-center py-20">
+        <div class="w-16 h-16 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center mx-auto mb-6 text-2xl text-rose-500">❌</div>
+        <h2 class="text-2xl font-black uppercase tracking-wider text-white mb-3">Identity Framework Decoupled / KYC Denied</h2>
+        <p class="text-sm text-slate-400 leading-relaxed mb-8">The submitted identification assets failed validation against current state regulation standards. Please verify and update your submission credentials.</p>
+        <button onclick="PlatformRouter.navigate('/kyc')" class="px-6 py-3 rounded-xl bg-rose-600 text-xs font-bold uppercase text-white transition-transform">Re-initialize Document Capture Pipeline</button>
+      </div>
+    `);
+
+    // Athlete Operating Space Dashboard Template Subsystem
+    PlatformRouter.register('/player/dashboard', () => `
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div class="lg:col-span-2 space-y-8">
+          <div class="glass-panel p-8 rounded-2xl border border-slate-800/80">
+            <h2 class="text-xl font-black uppercase tracking-wider text-white mb-6">Performance Matrix Overview Dashboard</h2>
+            <div class="grid grid-cols-3 gap-4">
+              <div class="bg-slate-950 p-4 rounded-xl border border-slate-900"><div class="text-xs font-mono text-slate-500 uppercase mb-1">Win Delta</div><div class="text-2xl font-black text-neon-blue">74.2%</div></div>
+              <div class="bg-slate-950 p-4 rounded-xl border border-slate-900"><div class="text-xs font-mono text-slate-500 uppercase mb-1">K/D Metric Ratio</div><div class="text-2xl font-black text-cyan-400">5.82</div></div>
+              <div class="bg-slate-950 p-4 rounded-xl border border-slate-900"><div class="text-xs font-mono text-slate-500 uppercase mb-1">Headshot Frequency</div><div class="text-2xl font-black text-neon-purple">41.9%</div></div>
+            </div>
+          </div>
+          <div class="glass-panel p-8 rounded-2xl border border-slate-800/80">
+            <h3 class="text-lg font-black uppercase tracking-wider text-white mb-4">Active Operational Contracts Registry</h3>
+            <div class="space-y-3">
+              ${SystemStateStore.activeMarketContracts.map(c => `
+                <div class="flex items-center justify-between p-4 bg-slate-950 rounded-xl border border-slate-900">
+                  <div><div class="font-bold text-sm text-white">${c.title}</div><div class="text-xs text-slate-500">${c.client}</div></div>
+                  <div class="text-right"><div class="text-sm font-mono font-black text-emerald-400">₹${c.volume}</div><div class="text-[10px] uppercase font-mono tracking-widest px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-400 mt-1 inline-block">${c.status}</div></div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+        <div class="space-y-8">
+          <div class="glass-panel p-6 rounded-2xl border border-slate-800">
+            <h3 class="text-sm font-mono uppercase tracking-widest text-slate-400 mb-4">Realtime Platform Event Signals</h3>
+            <div class="space-y-4">
+              ${SystemStateStore.systemNotifications.map(n => `
+                <div class="border-l-2 border-cyan-500 pl-3 py-1"><div class="text-xs font-bold text-slate-200">${n.title}</div><div class="text-[11px] text-slate-500 mt-0.5">${n.context}</div></div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      </div>
+    `);
+
+    PlatformRouter.register('/player/wallet', () => `
+      <div class="max-w-3xl mx-auto space-y-8">
+        <div class="glass-panel p-8 rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900/50 via-slate-950 to-black">
+          <span class="text-xs font-mono uppercase tracking-widest text-slate-500">Liquid Account Ledger Valuation</span>
+          <div class="text-5xl font-black text-white mt-2 mb-6">₹${SystemStateStore.financialLedgers.player_bal}.00</div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-6 border-t border-slate-900">
+            <div>
+              <label class="block text-xs font-mono uppercase tracking-wider text-slate-500 mb-2">Add Balance (ZapUPI Engine Network)</label>
+              <div class="flex gap-2">
+                <input type="number" id="wallet-deposit-amount-input" placeholder="₹ Value Parameter" class="bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none w-full">
+                <button onclick="PlatformActions.processDepositOrderGeneration()" id="wallet-deposit-action-trigger" class="bg-cyan-500 hover:bg-cyan-400 font-bold px-4 rounded-xl text-xs text-black uppercase tracking-wider whitespace-nowrap">Execute</button>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-mono uppercase tracking-wider text-slate-500 mb-2">Liquidate Capital To Bank Node</label>
+              <div class="flex gap-2">
+                <input type="number" id="wallet-withdrawal-amount-field" placeholder="₹ Value Parameter" class="bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none w-full">
+                <button onclick="PlatformActions.processWithdrawalRequestForm()" class="bg-slate-800 hover:bg-slate-700 font-bold px-4 rounded-xl text-xs text-white uppercase tracking-wider whitespace-nowrap">Request</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `);
+
+    PlatformRouter.register('/player/profile', () => `
+      <div class="max-w-3xl mx-auto glass-panel p-8 rounded-2xl border border-slate-800">
+        <h2 class="text-2xl font-black uppercase tracking-wider text-white mb-6">Ecosystem Portfolio Meta-Profile Configuration</h2>
+        <div class="space-y-6">
+          <div class="grid grid-cols-2 gap-4">
+            <div><label class="block text-xs font-mono text-slate-400 uppercase mb-1.5">In-Game Nickname Alias</label><input type="text" value="ViperX_7" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none text-slate-300"></div>
+            <div><label class="block text-xs font-mono text-slate-400 uppercase mb-1.5">Free Fire Global UID Token</label><input type="text" value="8827103948" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none text-slate-300" readonly></div>
+          </div>
+          <div><label class="block text-xs font-mono text-slate-400 uppercase mb-1.5">Gameplay Broadcast URL Stream Link</label><input type="text" value="https://youtube.com/c/mock-gameplay-stream" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none text-slate-300"></div>
+          <button onclick="alert('Profile configurations updated seamlessly.')" class="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 font-bold text-xs tracking-widest uppercase text-white">Commit Parameter Changes</button>
+        </div>
+      </div>
+    `);
+
+    PlatformRouter.register('/player/contracts', () => `
+      <div class="max-w-4xl mx-auto space-y-6">
+        <h2 class="text-2xl font-black uppercase tracking-wider text-white">Active Operational Ledger Contracts Registry</h2>
+        <div class="glass-panel p-6 rounded-2xl border border-slate-800/80 space-y-4">
+          ${SystemStateStore.activeMarketContracts.map(c => `
+            <div class="p-4 bg-slate-950 rounded-xl border border-slate-900 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div><span class="text-xs font-mono text-cyan-400 font-bold block">${c.id}</span><h3 class="text-base font-bold text-white mt-0.5">${c.title}</h3><p class="text-xs text-slate-500 mt-1">Sponsoring Agent Identity Entity: ${c.client}</p></div>
+              <div class="flex items-center gap-6 justify-between md:justify-end"><div class="text-right"><div class="text-sm font-mono font-bold text-emerald-400">₹${c.volume}</div><div class="text-[10px] text-slate-400 uppercase tracking-widest mt-0.5">${c.status}</div></div></div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `);
+
+    // Client/Organization Control Space Subsystem Templates
+    PlatformRouter.register('/client/dashboard', () => `
+      <div class="space-y-8">
+        <div class="glass-panel p-8 rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-950 via-slate-900/40 to-black flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div><span class="text-xs font-mono uppercase tracking-widest text-slate-400">Liquid Account Balance Registry</span><div class="text-4xl font-black text-white mt-1">₹${SystemStateStore.financialLedgers.client_bal}.00</div></div>
+          <div class="flex gap-4"><button onclick="PlatformRouter.navigate('/client/wallet')" class="px-5 py-3 rounded-xl bg-cyan-500 font-bold text-xs tracking-widest uppercase text-black">Deposit Settlement Capital</button></div>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div class="lg:col-span-2 space-y-6">
+            <h3 class="text-lg font-black uppercase tracking-wider text-white">Active Recruited Asset Roster Lineup</h3>
+            <div class="space-y-3">
+              <div class="glass-panel p-4 rounded-xl border border-slate-800 flex items-center justify-between"><div><div class="font-bold text-white text-sm">Aman "Viper" Sharma</div><div class="text-xs text-slate-400">Specialist Functional Sub-Role: Rusher</div></div><span class="text-xs font-mono px-3 py-1 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 uppercase">Deployment Active</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `);
+
+    PlatformRouter.register('/client/search-players', () => `
+      <div class="space-y-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <h2 class="text-2xl font-black uppercase tracking-wider text-white">Verified Athlete Matrix Registry</h2>
+          <div class="flex gap-2"><select class="bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-xs text-slate-300 focus:outline-none"><option>Role: All Vectors</option><option>Rusher</option><option>Sniper</option></select></div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          ${SystemStateStore.verifiedTalentPool.map(p => `
+            <div class="glass-panel p-6 rounded-2xl border border-slate-800/80 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between mb-4"><span class="text-[10px] font-mono tracking-widest text-cyan-400 uppercase px-2 py-0.5 bg-slate-950 border border-slate-800 rounded">${p.role}</span><span class="text-xs font-bold text-amber-400">★ ${p.rating}</span></div>
+                <h3 class="text-lg font-bold text-white mb-1">${p.name}</h3><p class="text-xs text-slate-400 font-mono mb-4">${p.rank}</p>
+              </div>
+              <div class="pt-4 border-t border-slate-900 flex items-center justify-between mt-4">
+                <div><span class="text-[10px] font-mono block text-slate-500 uppercase">Base Cost</span><span class="text-sm font-bold text-emerald-400">${p.rate}</span></div>
+                <button onclick="PlatformActions.processProposalTransmission('${p.uid}')" class="px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-cyan-500 text-xs font-bold uppercase text-white transition-all">Send Contract Offer</button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `);
+
+    PlatformRouter.register('/client/team-builder', () => `
+      <div class="space-y-6 max-w-4xl mx-auto">
+        <h2 class="text-2xl font-black uppercase tracking-wider text-white">Tactical Squad Forge Canvas</h2>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div class="glass-panel p-6 rounded-xl border border-slate-800 text-center"><div class="text-xs font-mono text-slate-500 uppercase mb-4">Slot 1: Primary Rusher</div><button onclick="PlatformRouter.navigate('/client/search-players')" class="w-full py-2 rounded-lg border border-dashed border-slate-700 text-xs text-slate-400 hover:text-white hover:border-slate-500 transition-colors">+ Select Athlete</button></div>
+          <div class="glass-panel p-6 rounded-xl border border-slate-800 text-center"><div class="text-xs font-mono text-slate-500 uppercase mb-4">Slot 2: Cover Sniper</div><button onclick="PlatformRouter.navigate('/client/search-players')" class="w-full py-2 rounded-lg border border-dashed border-slate-700 text-xs text-slate-400 hover:text-white hover:border-slate-500 transition-colors">+ Select Athlete</button></div>
+          <div class="glass-panel p-6 rounded-xl border border-slate-800 text-center"><div class="text-xs font-mono text-slate-500 uppercase mb-4">Slot 3: Tactical Support</div><button onclick="PlatformRouter.navigate('/client/search-players')" class="w-full py-2 rounded-lg border border-dashed border-slate-700 text-xs text-slate-400 hover:text-white hover:border-slate-500 transition-colors">+ Select Athlete</button></div>
+          <div class="glass-panel p-6 rounded-xl border border-slate-800 text-center"><div class="text-xs font-mono text-slate-500 uppercase mb-4">Slot 4: Flex Anchor</div><button onclick="PlatformRouter.navigate('/client/search-players')" class="w-full py-2 rounded-lg border border-dashed border-slate-700 text-xs text-slate-400 hover:text-white hover:border-slate-500 transition-colors">+ Select Athlete</button></div>
+        </div>
+      </div>
+    `);
+
+    PlatformRouter.register('/client/wallet', () => `
+      <div class="max-w-3xl mx-auto space-y-8">
+        <div class="glass-panel p-8 rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900/50 via-slate-950 to-black">
+          <span class="text-xs font-mono uppercase tracking-widest text-slate-500">Liquid Client Ledger Account Pool</span>
+          <div class="text-5xl font-black text-white mt-2 mb-6">₹${SystemStateStore.financialLedgers.client_bal}.00</div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-6 border-t border-slate-900">
+            <div>
+              <label class="block text-xs font-mono uppercase tracking-wider text-slate-500 mb-2">Deposit Escrow Allocations via ZapUPI</label>
+              <div class="flex gap-2">
+                <input type="number" id="wallet-deposit-amount-input" placeholder="₹ Value Field" class="bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none w-full">
+                <button onclick="PlatformActions.processDepositOrderGeneration()" id="wallet-deposit-action-trigger" class="bg-cyan-500 hover:bg-cyan-400 font-bold px-4 rounded-xl text-xs text-black uppercase tracking-wider whitespace-nowrap">Execute Settle</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `);
+
+    // System Executive Control Overlord Panel Matrix Dashboard Layout
+    PlatformRouter.register('/admin/dashboard', () => `
+      <div class="space-y-6">
+        <h2 class="text-2xl font-black text-rose-500 uppercase tracking-widest">System Executive Platform Management</h2>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div class="glass-panel p-4 rounded-xl border border-slate-800"><span class="text-xs font-mono text-slate-400 block uppercase">KYC Audits Pending</span><span class="text-2xl font-black text-amber-400">1</span></div>
+          <div class="glass-panel p-4 rounded-xl border border-slate-800"><span class="text-xs font-mono text-slate-400 block uppercase">Active Escrow Value</span><span class="text-2xl font-black text-emerald-400">₹23,000</span></div>
+        </div>
+        <div class="glass-panel p-6 rounded-xl border border-slate-800">
+          <h3 class="text-sm font-mono tracking-widest text-white uppercase mb-4">Identity Compliance Validation Actions</h3>
+          <div class="p-4 bg-slate-950 rounded-lg border border-slate-900 flex items-center justify-between">
+            <div><div class="text-sm font-bold text-white">Pending Verification: User USR_MOCK_2041</div><div class="text-xs text-slate-500 mt-0.5">Submitted assets require programmatic checklist clearance.</div></div>
+            <div class="flex gap-2">
+              <button onclick="alert('KYC Identity Approved.'); PlatformRouter.navigate('/admin/dashboard');" class="bg-emerald-600 px-4 py-2 rounded-lg text-xs font-bold text-white uppercase">Approve Account</button>
+              <button onclick="alert('KYC Identity Refused.'); PlatformRouter.navigate('/admin/dashboard');" class="bg-rose-600 px-4 py-2 rounded-lg text-xs font-bold text-white uppercase">Reject</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `);
+
+    PlatformRouter.register('/admin/kyc', () => `
+      <div class="max-w-3xl mx-auto space-y-6">
+        <h2 class="text-xl font-black text-white uppercase tracking-wider">KYC Audits Pending Queue</h2>
+        <div class="glass-panel p-6 rounded-xl border border-slate-800 text-center text-sm text-slate-500">
+          No remaining raw entity inputs require human programmatic audit matching currently.
+        </div>
+      </div>
+    `);
+
+    // Standard Legal Subpage Views Mapping Context Block
+    PlatformRouter.register('/privacy', () => `<div class="max-w-2xl mx-auto py-12"><h2 class="text-2xl font-black uppercase text-white mb-4">Privacy Framework Data Charter</h2><p class="text-slate-400 text-sm leading-relaxed">Platform storage parameters encrypt telemetry signatures locally and inside secure database models to comply with international regulations.</p></div>`);
+    PlatformRouter.register('/terms', () => `<div class="max-w-2xl mx-auto py-12"><h2 class="text-2xl font-black uppercase text-white mb-4">Terms of Operational Conditions</h2><p class="text-slate-400 text-sm leading-relaxed">Transactions executed inside serverless layers generate immutable task logs. Platform takes a 3% escrow settlement administration infrastructure charge automatically upon deployment execution verification.</p></div>`);
+
+    // Complete Platform Run-time Framework Application Boot Sequence Logic Interceptor Trigger
+    window.addEventListener('DOMContentLoaded', () => {
+      initializeThreeEngineMeshBackground();
+      PlatformRouter.resolveAndExecuteRoute(window.location.pathname);
+    });
+
+    window.addEventListener('popstate', () => {
+      PlatformRouter.resolveAndExecuteRoute(window.location.pathname);
+    });
+  </script>
+</body>
+</html>
